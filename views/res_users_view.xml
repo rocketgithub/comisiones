@@ -1,0 +1,63 @@
+<openerp>
+    <data>
+
+        <record model="ir.ui.view" id="comisiones.view_users_form">
+            <field name="name">comisiones.view_users_form</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_form"/>
+            <field name="arch" type="xml">
+                <page string="Preferences" position="after">
+                    <page string="Comisiones">
+                        <group>
+                            <field name="porcentaje_comision_primer_anio"/>
+                            <field name="aplica_comision_por_rangos"/>
+                            <field name="monto_minimo_para_comisiones"/>
+                            <field name="meta_comisiones"/>
+                            <field name="porcentaje_penalizacion_meta"/>
+                            <field name="dias_penalizacion_vencimiento"/>
+                            <field name="porcentaje_penalizacion_dias_vencimiento"/>
+                        </group>
+                        <group string="Comisiones por producto" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}">
+                            <field name="comision_producto" nolabel="1">
+                                <tree string="Comision por producto" editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="porcentaje_comision"/>
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="Comisiones por categoria" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}">
+                            <field name="comision_categoria_producto" nolabel="1">
+                                <tree string="Comision por categoria de producto" editable="bottom">
+                                    <field name="categ_id"/>
+                                    <field name="porcentaje_comision"/>
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="Comisiones por rango de ventas" attrs="{'invisible':[('aplica_comision_por_rangos','=',False)]}">
+                            <field name="comision_rango" nolabel="1">
+                                <tree string="Comision por rango" editable="bottom">
+                                    <field name="categ_id"/>
+                                    <field name="minimo"/>
+                                    <field name="maximo"/>
+                                    <field name="porcentaje_comision"/>
+                                </tree>
+                            </field>
+                        </group>
+                    </page>
+                </page>
+            </field>
+        </record>
+
+        <record model="ir.ui.view" id="comisiones.view_users_form2">
+            <field name="name">comisiones.view_users_form2</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_form"/>
+            <field name="arch" type="xml">
+                <field name="active" position="after">
+                    <field name="fecha_ingreso"/>
+                </field>
+            </field>
+        </record>
+
+    </data>
+</openerp>

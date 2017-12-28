@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <record id="comisiones.calculo_wizard_form_view" model="ir.ui.view">
+            <field name="name">calculo_wizard.form</field>
+            <field name="model">comisiones.calculo.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Calculo de comisiones">
+                    <group>
+                        <group>
+                            <field name="usuario_id"/>
+                            <field name="fecha_inicio"/>
+                            <field name="fecha_fin"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="archivo"/>
+                    </group>
+                    <footer>
+                        <button name="generar" string="Generar" type="object" class="oe_highlight"/>
+                        or
+                        <button string="Cancel" class="oe_link" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <act_window id="action_comisiones_calculo_wizard"
+            name="Calculo de comisiones"
+            src_model="res.users"
+            res_model="comisiones.calculo.wizard"
+            view_type="form" view_mode="form"
+            key2="client_action_multi" target="new"/>
+
+    </data>
+</openerp>

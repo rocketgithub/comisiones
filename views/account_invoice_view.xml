@@ -1,0 +1,16 @@
+<openerp>
+    <data>
+
+        <record model="ir.ui.view" id="comisiones.invoice_form">
+            <field name="name">comisiones.account.invoice.form</field>
+            <field name="model">account.invoice</field>
+            <field name="inherit_id" ref="account.invoice_form"/>
+            <field name="arch" type="xml">
+                <field name="fiscal_position" position="after">
+                    <field name="no_calcular_comision"/>
+                </field>
+            </field>
+        </record>
+
+    </data>
+</openerp>
