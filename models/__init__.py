@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
 import comisiones
-import users
-import product
+import hr
 import account_invoice

@@ -1,12 +1,12 @@
 <openerp>
     <data>
 
-        <record model="ir.ui.view" id="comisiones.view_users_form">
-            <field name="name">comisiones.view_users_form</field>
-            <field name="model">res.users</field>
-            <field name="inherit_id" ref="base.view_users_form"/>
+        <record model="ir.ui.view" id="comisiones.view_employee_form">
+            <field name="name">comisiones.hr.employee.form</field>
+            <field name="model">hr.employee</field>
+            <field name="inherit_id" ref="hr.view_employee_form"/>
             <field name="arch" type="xml">
-                <page string="Preferences" position="after">
+                <page string="HR Settings" position="after">
                     <page string="Comisiones">
                         <group>
                             <field name="aplica_comision_por_rangos"/>
@@ -47,7 +47,7 @@
                 </page>
             </field>
         </record>
-
+<!--
         <record model="ir.ui.view" id="comisiones.view_users_form2">
             <field name="name">comisiones.view_users_form2</field>
             <field name="model">res.users</field>
@@ -58,6 +58,6 @@
                 </field>
             </field>
         </record>
-
+-->
     </data>
 </openerp>
