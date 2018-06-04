@@ -30,6 +30,19 @@ class comisiones_calculo_wizard2(osv.osv_memory):
         'vendedor_id': _default_vendedor,
     }
 
+    def obtener_categoria_padre(self, cr, uid, categoria, categorias_en_rango):
+        categoria_producto_padre = categoria
+        lista_categorias_padres = []
+        while (categoria_producto_padre !=False):
+            categorias_hijas = self.pool.get('product.category').browse(cr, uid, categoria_producto_padre)
+            if categorias_hijas.id in categorias_en_rango:
+                lista_categorias_padres.append(categorias_hijas.id)
+                categoria_producto_padre = categorias_hijas.parent_id.id
+                categoria_producto_padre = False
+            else:
+                categoria_producto_padre = categorias_hijas.parent_id.id
+        categoria = lista_categorias_padres[(len(lista_categorias_padres)-1)]
+        return categoria
 
     #Concateno numeros de pago y fechas de pago, en caso que sean varios pagos para esta factura, y poder desplegarlos 
     #en una misma celda del csv.
@@ -83,9 +96,6 @@ class comisiones_calculo_wizard2(osv.osv_memory):
                 subtotales_categoria[rango.categ_id.id] = 0
                 comision_por_categoria[rango.categ_id.id] = 0
 
-        logging.warn('Categorias en rango')
-        logging.warn(categorias_en_rango)
-                
         #Como los rangos pueden ser por categoría, calculo subtotales globales para cada categoria de productos definida en categorias_en_rango.
         #Los subtotales de cada categoría quedan guardados en el diccionario subtotales_categorias.
         #La suma de las ventas que no tienen categorías relacionadas, o de categorías que no aparecen en los rangos, se guardan en la variable 
@@ -95,12 +105,11 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             for invoice_line in invoice.invoice_line:
                 #Reviso si el producto tiene categoría, y si esta está definida en los rangos de comisiones (categorias_en_rango).
                 #Si es verdadero, voy calculando la sumatoria por categorías. De lo contrario, suma en la variable subtotal_sin_categoria.
-                if invoice_line.product_id.categ_id and invoice_line.product_id.categ_id.id in categorias_en_rango:                        
-                    subtotales_categoria[invoice_line.product_id.categ_id.id] += invoice_line.price_subtotal
+                categoria = self.obtener_categoria_padre(cr,uid,invoice_line.product_id.categ_id.id,categorias_en_rango)
+                if invoice_line.product_id.categ_id and categoria in categorias_en_rango:                        
+                    subtotales_categoria[categoria] += invoice_line.price_subtotal
                 else:
                     subtotal_sin_categoria += invoice_line.price_subtotal
-            logging.warn('Sobtotales por categoria')
-            logging.warn(subtotales_categoria)
 
         #Ya teniendo los subtotales por categoría y subtotal_sin_categoria, se puede revisar en qué rango de comisión aplica ese subtotal 
         #para una categoría determinada, y en qué rango está el subtotal sin categoría, y así poder averiguar el porcentaje de comisión por
@@ -113,7 +122,7 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             else:
                 if rango.minimo <= subtotal_sin_categoria and rango.maximo >= subtotal_sin_categoria:
                     porcentaje_comision_sin_categoria = rango.porcentaje_comision
-        
+
         #Ya teniendo los porcentajes de comisión para cada rango de categorías, recorro las facturas y valido.
         y = 3
         for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
@@ -130,8 +139,9 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             hoja.write(y, 6, datos_pago['fecha_pago'])
 
             for invoice_line in invoice.invoice_line:
-                if invoice_line.product_id.categ_id and invoice_line.product_id.categ_id.id in categorias_en_rango: 
-                    monto_comision_linea = invoice_line.price_subtotal * (comision_por_categoria[invoice_line.product_id.categ_id.id] / 100)
+                categoria = self.obtener_categoria_padre(cr,uid,invoice_line.product_id.categ_id.id,categorias_en_rango)
+                if invoice_line.product_id.categ_id and categoria in categorias_en_rango: 
+                    monto_comision_linea = invoice_line.price_subtotal * (comision_por_categoria[categoria] / 100)
                 else:
                     monto_comision_linea = invoice_line.price_subtotal * (porcentaje_comision_sin_categoria / 100)
                 

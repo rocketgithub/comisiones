@@ -1,6 +1,6 @@
 <openerp>
     <data>
-<!--
+
         <record id="comisiones_rango_view" model="ir.ui.view">
             <field name="name">comisiones.rangos_view</field>
             <field name="model">comisiones.rango</field>
@@ -22,6 +22,6 @@
             <field name="view_id" ref="comisiones_rango_view"/>
         </record>
         <menuitem id="menu_comisiones_rango_form" action="action_comisiones_rango_form" parent="base.menu_sales"/>
--->
+
     </data>
 </openerp>
