@@ -9,13 +9,13 @@
                 <page string="HR Settings" position="after">
                     <page string="Comisiones">
                         <group>
-                            <field name="aplica_comision_por_rangos"/>
-                            <field name="porcentaje_comision_primer_anio" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}"/>
-                            <field name="monto_minimo_para_comisiones" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}"/>
-                            <field name="meta_comisiones" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}"/>
-                            <field name="porcentaje_penalizacion_meta" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}"/>
+                            <field name="porcentaje_comision_primer_anio"/>
+                            <field name="monto_minimo_para_comisiones"/>
+                            <field name="meta_comisiones"/>
+                            <field name="porcentaje_penalizacion_meta"/>
                             <field name="dias_penalizacion_vencimiento"/>
                             <field name="porcentaje_penalizacion_dias_vencimiento"/>
+                            <field name="aplica_comision_por_rangos"/>
                         </group>
                         <group string="Comisiones por producto" attrs="{'invisible':[('aplica_comision_por_rangos','=',True)]}">
                             <field name="comision_producto" nolabel="1">

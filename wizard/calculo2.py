@@ -123,6 +123,18 @@ class comisiones_calculo_wizard2(osv.osv_memory):
                 if rango.minimo <= subtotal_sin_categoria and rango.maximo >= subtotal_sin_categoria:
                     porcentaje_comision_sin_categoria = rango.porcentaje_comision
 
+        monto_subtotal_vendido = 0
+        for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
+            monto_subtotal_vendido += invoice.amount_untaxed
+
+        if monto_subtotal_vendido < vendedor.monto_minimo_para_comisiones:
+            hoja.write(3, 0, 'El monto vendido no es suficiente para obtener comisiones')
+
+        #Reviso si va a aplicar penalización por no haber llegado a la meta de ventas.
+        porcentaje_penalizacion_meta = 0
+        if monto_subtotal_vendido < vendedor.meta_comisiones:
+            porcentaje_penalizacion_meta = vendedor.porcentaje_penalizacion_meta
+
         #Ya teniendo los porcentajes de comisión para cada rango de categorías, recorro las facturas y valido.
         y = 3
         for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
@@ -152,7 +164,15 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             monto_penalizacion_vencimiento = self.calcular_monto_penalizacion_vencimiento(cr, uid, vendedor, invoice, monto_comision_factura)
             monto_comision_factura = monto_comision_factura - monto_penalizacion_vencimiento                    
 
-            hoja.write(y, 8, 'N/A') #Para comisiones por rango, no aplica penalización por no llegar a la meta.
+            monto_penalizacion_meta = 0
+            if porcentaje_penalizacion_meta > 0:
+                monto_penalizacion_meta = monto_comision_factura * (porcentaje_penalizacion_meta / 100)
+            monto_comision_factura = monto_comision_factura - monto_penalizacion_meta - monto_penalizacion_vencimiento
+
+
+
+
+            hoja.write(y, 8, monto_penalizacion_meta) #Para comisiones por rango, no aplica penalización por no llegar a la meta.
             hoja.write(y, 9, monto_penalizacion_vencimiento)
             hoja.write(y, 10, monto_comision_factura)
             
