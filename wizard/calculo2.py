@@ -20,7 +20,6 @@ class comisiones_calculo_wizard2(osv.osv_memory):
         'archivo': fields.binary('Archivo'),
     }
 
-
     def _default_vendedor(self, cr, uid, context):
         if 'active_id' in context:
             return context['active_id']
@@ -32,19 +31,18 @@ class comisiones_calculo_wizard2(osv.osv_memory):
 
     def obtener_categoria_padre(self, cr, uid, categoria, categorias_en_rango):
         categoria_producto_padre = categoria
-        lista_categorias_padres = []
-        while (categoria_producto_padre !=False):
-            categorias_hijas = self.pool.get('product.category').browse(cr, uid, categoria_producto_padre)
-            if categorias_hijas.id in categorias_en_rango:
-                lista_categorias_padres.append(categorias_hijas.id)
-                categoria_producto_padre = categorias_hijas.parent_id.id
-                categoria_producto_padre = False
-            else:
-                categoria_producto_padre = categorias_hijas.parent_id.id
-        categoria = lista_categorias_padres[(len(lista_categorias_padres)-1)]
+        lista_categorias_padres = [categoria]
+        while (categoria_producto_padre != False):
+            categoria_hija = self.pool.get('product.category').browse(cr, uid, categoria_producto_padre)
+            if categoria_hija.id in categorias_en_rango:
+                lista_categorias_padres.append(categoria_hija.id)
+
+            categoria_producto_padre = categoria_hija.parent_id.id
+
+        categoria = lista_categorias_padres.pop()
         return categoria
 
-    #Concateno numeros de pago y fechas de pago, en caso que sean varios pagos para esta factura, y poder desplegarlos 
+    #Concateno numeros de pago y fechas de pago, en caso que sean varios pagos para esta factura, y poder desplegarlos
     #en una misma celda del csv.
     def obtener_numero_y_fecha_pagos(self, cr, uid, invoice):
         res = {}
@@ -55,8 +53,8 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             if z > 0:
                 res['numero_pago'] += ', '
                 res['fecha_pago'] += ', '
-            res['numero_pago'] = res['numero_pago'] + str(payment_id.ref)
-            res['fecha_pago'] = res['fecha_pago'] + str(payment_id.date)
+            res['numero_pago'] = res['numero_pago'] + payment_id.ref
+            res['fecha_pago'] = res['fecha_pago'] + payment_id.date
             z += 1
 
         return res
@@ -79,10 +77,10 @@ class comisiones_calculo_wizard2(osv.osv_memory):
 
         return monto_penalizacion_vencimiento
 
-        
+
     #Las comisiones pueden generarse por rango de ventas. Pero pueden haber comisiones por rango de ventas de categoría.
     #Entonces puede existir no solo un porcentaje de comisiones, sino que puede existir un porcentaje de comisiones para
-    #cada rango de ventas por categoría, y un porcentaje de comisión para rangos de ventas sin categoría o que la categoría 
+    #cada rango de ventas por categoría, y un porcentaje de comisión para rangos de ventas sin categoría o que la categoría
     #no está definida en los rangos.
     def comisiones_por_rango(self, cr, uid, vendedor, hoja, invoice_ids):
         #Genero un array con los ids de las categorías de producto que si están definidas en los rangos, e inicializo diccionarios.
@@ -98,7 +96,7 @@ class comisiones_calculo_wizard2(osv.osv_memory):
 
         #Como los rangos pueden ser por categoría, calculo subtotales globales para cada categoria de productos definida en categorias_en_rango.
         #Los subtotales de cada categoría quedan guardados en el diccionario subtotales_categorias.
-        #La suma de las ventas que no tienen categorías relacionadas, o de categorías que no aparecen en los rangos, se guardan en la variable 
+        #La suma de las ventas que no tienen categorías relacionadas, o de categorías que no aparecen en los rangos, se guardan en la variable
         #subtotal_sin_categoria
         subtotal_sin_categoria = 0
         for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
@@ -106,15 +104,16 @@ class comisiones_calculo_wizard2(osv.osv_memory):
                 #Reviso si el producto tiene categoría, y si esta está definida en los rangos de comisiones (categorias_en_rango).
                 #Si es verdadero, voy calculando la sumatoria por categorías. De lo contrario, suma en la variable subtotal_sin_categoria.
                 categoria = self.obtener_categoria_padre(cr,uid,invoice_line.product_id.categ_id.id,categorias_en_rango)
-                if invoice_line.product_id.categ_id and categoria in categorias_en_rango:                        
+                if invoice_line.product_id.categ_id and categoria in categorias_en_rango:
                     subtotales_categoria[categoria] += invoice_line.price_subtotal
                 else:
                     subtotal_sin_categoria += invoice_line.price_subtotal
 
-        #Ya teniendo los subtotales por categoría y subtotal_sin_categoria, se puede revisar en qué rango de comisión aplica ese subtotal 
+        #Ya teniendo los subtotales por categoría y subtotal_sin_categoria, se puede revisar en qué rango de comisión aplica ese subtotal
         #para una categoría determinada, y en qué rango está el subtotal sin categoría, y así poder averiguar el porcentaje de comisión por
         #categoría, lo cual queda guardado en comision_por_categoria[categ_id], y averiguar el porcentaje de comisión para las ventas sin
         #categoría, lo cual queda guardado en porcentaje_comision_sin_categoria.
+        porcentaje_comision_sin_categoria = 0
         for rango in vendedor.comision_rango:
             if rango.categ_id:
                 if rango.minimo <= subtotales_categoria[rango.categ_id.id] and rango.maximo >= subtotales_categoria[rango.categ_id.id]:
@@ -127,56 +126,57 @@ class comisiones_calculo_wizard2(osv.osv_memory):
         for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
             monto_subtotal_vendido += invoice.amount_untaxed
 
+        logging.getLogger('MONTO VENDIDO... ').warn(monto_subtotal_vendido)
         if monto_subtotal_vendido < vendedor.monto_minimo_para_comisiones:
-            hoja.write(3, 0, 'El monto vendido no es suficiente para obtener comisiones')
+            hoja.write(3, 0, 'El monto vendido no es suficiente para obtener comisiones: ' + str(monto_subtotal_vendido))
+        else:
+            #Reviso si va a aplicar penalización por no haber llegado a la meta de ventas.
+            porcentaje_penalizacion_meta = 0
+            if monto_subtotal_vendido < vendedor.meta_comisiones:
+                porcentaje_penalizacion_meta = vendedor.porcentaje_penalizacion_meta
 
-        #Reviso si va a aplicar penalización por no haber llegado a la meta de ventas.
-        porcentaje_penalizacion_meta = 0
-        if monto_subtotal_vendido < vendedor.meta_comisiones:
-            porcentaje_penalizacion_meta = vendedor.porcentaje_penalizacion_meta
+            #Ya teniendo los porcentajes de comisión para cada rango de categorías, recorro las facturas y valido.
+            y = 10
+            for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
+                monto_comision_factura = 0
 
-        #Ya teniendo los porcentajes de comisión para cada rango de categorías, recorro las facturas y valido.
-        y = 3
-        for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
-            monto_comision_factura = 0
+                hoja.write(y, 0, invoice.origin)
+                hoja.write(y, 1, invoice.number)
+                hoja.write(y, 2, invoice.date_invoice)
+                hoja.write(y, 3, invoice.date_due)
+                hoja.write(y, 4, invoice.amount_total)
 
-            hoja.write(y, 0, invoice.origin)
-            hoja.write(y, 1, invoice.number)
-            hoja.write(y, 2, invoice.date_invoice)
-            hoja.write(y, 3, invoice.date_due)
-            hoja.write(y, 4, invoice.amount_total)
+                datos_pago = self.obtener_numero_y_fecha_pagos(cr, uid, invoice)
+                hoja.write(y, 5, datos_pago['numero_pago'])
+                hoja.write(y, 6, datos_pago['fecha_pago'])
 
-            datos_pago = self.obtener_numero_y_fecha_pagos(cr, uid, invoice)
-            hoja.write(y, 5, datos_pago['numero_pago'])
-            hoja.write(y, 6, datos_pago['fecha_pago'])
+                for invoice_line in invoice.invoice_line:
+                    categoria = self.obtener_categoria_padre(cr,uid,invoice_line.product_id.categ_id.id,categorias_en_rango)
+                    if invoice_line.product_id.categ_id and categoria in categorias_en_rango:
+                        monto_comision_linea = invoice_line.price_subtotal * (comision_por_categoria[categoria] / 100)
+                    else:
+                        monto_comision_linea = invoice_line.price_subtotal * (porcentaje_comision_sin_categoria / 100)
 
-            for invoice_line in invoice.invoice_line:
-                categoria = self.obtener_categoria_padre(cr,uid,invoice_line.product_id.categ_id.id,categorias_en_rango)
-                if invoice_line.product_id.categ_id and categoria in categorias_en_rango: 
-                    monto_comision_linea = invoice_line.price_subtotal * (comision_por_categoria[categoria] / 100)
-                else:
-                    monto_comision_linea = invoice_line.price_subtotal * (porcentaje_comision_sin_categoria / 100)
-                
-                monto_comision_factura += monto_comision_linea
+                    monto_comision_factura += monto_comision_linea
 
-            hoja.write(y, 7, monto_comision_factura)
+                hoja.write(y, 7, monto_comision_factura)
 
-            monto_penalizacion_vencimiento = self.calcular_monto_penalizacion_vencimiento(cr, uid, vendedor, invoice, monto_comision_factura)
-            monto_comision_factura = monto_comision_factura - monto_penalizacion_vencimiento                    
+                monto_penalizacion_vencimiento = self.calcular_monto_penalizacion_vencimiento(cr, uid, vendedor, invoice, monto_comision_factura)
+                monto_comision_factura = monto_comision_factura - monto_penalizacion_vencimiento
 
-            monto_penalizacion_meta = 0
-            if porcentaje_penalizacion_meta > 0:
-                monto_penalizacion_meta = monto_comision_factura * (porcentaje_penalizacion_meta / 100)
-            monto_comision_factura = monto_comision_factura - monto_penalizacion_meta - monto_penalizacion_vencimiento
-
-
+                monto_penalizacion_meta = 0
+                if porcentaje_penalizacion_meta > 0:
+                    monto_penalizacion_meta = monto_comision_factura * (porcentaje_penalizacion_meta / 100)
+                monto_comision_factura = monto_comision_factura - monto_penalizacion_meta - monto_penalizacion_vencimiento
 
 
-            hoja.write(y, 8, monto_penalizacion_meta) #Para comisiones por rango, no aplica penalización por no llegar a la meta.
-            hoja.write(y, 9, monto_penalizacion_vencimiento)
-            hoja.write(y, 10, monto_comision_factura)
-            
-            y += 1
+
+
+                hoja.write(y, 8, monto_penalizacion_meta) #Para comisiones por rango, no aplica penalización por no llegar a la meta.
+                hoja.write(y, 9, monto_penalizacion_vencimiento)
+                hoja.write(y, 10, monto_comision_factura)
+
+                y += 1
 
     #Si las comisiones no se calculan por rango de ventas, se pueden calcular por comisiones por producto o comisiones por categoría de producto.
     #Si el vendedor tiene menos de un año como vendedor, le puede aplicar una comisión fija por ser nuevo, y entonces no aplicarle ninguno de los
@@ -186,7 +186,7 @@ class comisiones_calculo_wizard2(osv.osv_memory):
     def comisiones_por_producto_o_vendedor_nuevo(self, cr, uid, vendedor, hoja, invoice_ids, fecha_inicio):
 
         #Reviso si el vendedor tiene menos de un año. Al vendedor le aplica una comisión fija durante el primer año. Si el vendedor tiene configurado
-        #el valor 0 en el porcentaje de comision del primer año, o no tiene configurado fecha de ingreso, entonces no le aplica el modelo de comisión 
+        #el valor 0 en el porcentaje de comision del primer año, o no tiene configurado fecha de ingreso, entonces no le aplica el modelo de comisión
         #para nuevos.
         porcentaje_comision_nuevo = 0
         if vendedor.fecha_ingreso and vendedor.porcentaje_comision_primer_anio > 0:
@@ -194,12 +194,13 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             if r.years == 0:
                 porcentaje_comision_nuevo = vendedor.porcentaje_comision_primer_anio
 
-        #Calculo el subtotal global vendido, para compararlo con el mínimo de ventas requerido para obtener comisiones, 
+        #Calculo el subtotal global vendido, para compararlo con el mínimo de ventas requerido para obtener comisiones,
         #y para compararlo con el monto meta.
         monto_subtotal_vendido = 0
         for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
             monto_subtotal_vendido += invoice.amount_untaxed
 
+        logging.getLogger('MONTO VENDIDO... ').warn(monto_subtotal_vendido)
         if monto_subtotal_vendido < vendedor.monto_minimo_para_comisiones:
             hoja.write(3, 0, 'El monto vendido no es suficiente para obtener comisiones')
         else:
@@ -208,7 +209,7 @@ class comisiones_calculo_wizard2(osv.osv_memory):
             porcentaje_penalizacion_meta = 0
             if monto_subtotal_vendido < vendedor.meta_comisiones:
                 porcentaje_penalizacion_meta = vendedor.porcentaje_penalizacion_meta
-        
+
             #Recorro las facturas para agregar al csv datos de la factura, y calculo la comisión de cada factura para agregarla al csv.
             y = 3
             for invoice in self.pool.get('account.invoice').browse(cr, uid, invoice_ids):
@@ -223,7 +224,7 @@ class comisiones_calculo_wizard2(osv.osv_memory):
                 hoja.write(y, 5, datos_pago['numero_pago'])
                 hoja.write(y, 6, datos_pago['fecha_pago'])
 
-                #Calculo la comisión por línea de factura, ya que la comisión puede ser por producto o por categoría de producto 
+                #Calculo la comisión por línea de factura, ya que la comisión puede ser por producto o por categoría de producto
                 #(o comisión de nuevo vendedor)
                 for invoice_line in invoice.invoice_line:
                     porcentaje_comision_linea = 0
@@ -284,11 +285,12 @@ class comisiones_calculo_wizard2(osv.osv_memory):
 
             #Obtengo los ids de las facturas en las cuales se van a calcular las comisiones: invoice_ids
             move_ids = []
-            voucher_line_ids = self.pool.get('account.voucher.line').search(cr, uid, [('date_original', '>=', w.fecha_inicio), ('date_original', '<=', w.fecha_fin)])
+#            voucher_line_ids = self.pool.get('account.voucher.line').search(cr, uid, [('date_original', '>=', w.fecha_inicio), ('date_original', '<=', w.fecha_fin)])
+            voucher_line_ids = self.pool.get('account.voucher.line').search(cr, uid, [('voucher_id.date', '>=', w.fecha_inicio), ('voucher_id.date', '<=', w.fecha_fin)])
             for voucher_line in self.pool.get('account.voucher.line').browse(cr, uid, voucher_line_ids, context=context):
                 move_ids.append(voucher_line.move_line_id.move_id.id)
 
-            temp_invoice_ids = self.pool.get('account.invoice').search(cr, uid, [('move_id', 'in', move_ids), ('state', '=', 'paid'), ('no_calcular_comision', '=', False)],order='date_invoice asc')
+            temp_invoice_ids = self.pool.get('account.invoice').search(cr, uid, [('user_id', '=', w.vendedor_id.user_id.id), ('type', '=', 'out_invoice'), ('move_id', 'in', move_ids), ('state', '=', 'paid'), ('no_calcular_comision', '=', False)],order='date_invoice asc')
             logging.warn('Facturas temporales')
             logging.warn(temp_invoice_ids)
             invoice_ids = []
@@ -299,9 +301,11 @@ class comisiones_calculo_wizard2(osv.osv_memory):
                         fecha_mayor = True
                 if fecha_mayor == False:
                     invoice_ids.append(invoice.id)
-            
+
+            logging.warn('FACTURAS IDS... ')
+            logging.warn(invoice_ids)
             vendedor = self.pool.get('hr.employee').browse(cr, uid, w.vendedor_id.id, context=context)
-            
+
             if vendedor.aplica_comision_por_rangos:
                 self.comisiones_por_rango(cr, uid, vendedor, hoja, invoice_ids)
             else:

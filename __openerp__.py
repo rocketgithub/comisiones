@@ -27,7 +27,6 @@
         'views/comisiones_view.xml',
         'views/account_invoice_view.xml',
         'views/hr_view.xml',
-        'wizard/calculo.xml',
         'wizard/calculo2.xml',
     ],
 }
